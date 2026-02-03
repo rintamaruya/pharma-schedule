@@ -1,13 +1,562 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>薬剤説明会スケジュール</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+      color: #333;
+    }
+
+    .header {
+      background-color: #0a7ea4;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+
+    .header p {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .login-box {
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+    }
+
+    .login-box h2 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #0a7ea4;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      font-family: inherit;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: #0a7ea4;
+    }
+
+    .form-group textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      background-color: #0a7ea4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .btn:hover {
+      background-color: #086b8a;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-secondary {
+      background-color: #22c55e;
+    }
+
+    .btn-secondary:hover {
+      background-color: #16a34a;
+    }
+
+    .btn-danger {
+      background-color: #ef4444;
+    }
+
+    .btn-danger:hover {
+      background-color: #dc2626;
+    }
+
+    .seminar-list {
+      margin-top: 20px;
+    }
+
+    .seminar-card {
+      background: white;
+      padding: 20px;
+      margin-bottom: 15px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .seminar-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+
+    .seminar-card.today {
+      background-color: #fef3c7;
+      border-left: 4px solid #f59e0b;
+    }
+
+    .seminar-card h3 {
+      color: #0a7ea4;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+
+    .seminar-card p {
+      margin: 5px 0;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .seminar-card .company {
+      font-weight: 600;
+      color: #333;
+      font-size: 16px;
+    }
+
+    .fab {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 60px;
+      height: 60px;
+      background-color: #0a7ea4;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      font-size: 32px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      transition: transform 0.2s;
+    }
+
+    .fab:hover {
+      transform: scale(1.1);
+    }
+
+    .fab:active {
+      transform: scale(0.95);
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .modal h2 {
+      margin-bottom: 20px;
+      color: #0a7ea4;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .action-buttons button {
+      flex: 1;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state p {
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 10px;
+      }
+      
+      .header h1 {
+        font-size: 20px;
+      }
+      
+      .login-box {
+        padding: 30px 20px;
+      }
+      
+      .fab {
+        bottom: 20px;
+        right: 20px;
+        width: 56px;
+        height: 56px;
+        font-size: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- ログイン画面 -->
+  <div id="loginScreen" class="login-container">
+    <div class="login-box">
+      <h2>🏥 薬剤説明会スケジュール</h2>
+      <p style="text-align: center; color: #666; margin-bottom: 30px;">
+        医局内の製薬会社説明会のスケジュールを共有・管理できるアプリです。
+      </p>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>パスワード</label>
+          <input type="password" id="passwordInput" placeholder="医局共通のパスワードを入力" required />
+        </div>
+        <button type="submit" class="btn">ログイン</button>
+      </form>
+      <p style="text-align: center; color: #999; margin-top: 20px; font-size: 14px;">
+        パスワードは医局メンバーに共有されています。
+      </p>
+    </div>
+  </div>
+
+  <!-- メイン画面 -->
+  <div id="mainScreen" class="hidden">
+    <div class="header">
+      <h1>🏥 薬剤説明会スケジュール</h1>
+      <p>医局内の説明会情報を管理</p>
+    </div>
+
+    <div class="container">
+      <!-- LINE共有ボタン -->
+      <button onclick="shareToLine()" class="btn btn-secondary" style="margin-top: 20px;">
+        📱 LINEで共有
+      </button>
+
+      <!-- 説明会リスト -->
+      <div id="seminarList" class="seminar-list"></div>
+    </div>
+
+    <!-- 追加ボタン -->
+    <button onclick="openAddModal()" class="fab">+</button>
+
+    <!-- 追加/編集モーダル -->
+    <div id="modalOverlay" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+      <div class="modal">
+        <h2 id="modalTitle">説明会を追加</h2>
+        <form id="seminarForm">
+          <div class="form-group">
+            <label>製薬会社名 *</label>
+            <input type="text" id="company" required />
+          </div>
+          <div class="form-group">
+            <label>タイトル *</label>
+            <input type="text" id="title" required />
+          </div>
+          <div class="form-group">
+            <label>日付 (8桁: 例 20260203) *</label>
+            <input type="text" id="date" placeholder="20260203" pattern="[0-9]{8}" maxlength="8" required />
+          </div>
+          <div class="form-group">
+            <label>時刻 (4桁: 例 1400) *</label>
+            <input type="text" id="time" placeholder="1400" pattern="[0-9]{4}" maxlength="4" required />
+          </div>
+          <div class="form-group">
+            <label>場所 *</label>
+            <input type="text" id="location" required />
+          </div>
+          <div class="form-group">
+            <label>メモ</label>
+            <textarea id="memo" placeholder="任意のメモを入力"></textarea>
+          </div>
+          <div class="action-buttons">
+            <button type="button" onclick="closeModal()" class="btn" style="background-color: #999;">
+              キャンセル
+            </button>
+            <button type="submit" class="btn">完了</button>
+          </div>
+          <button type="button" id="deleteBtn" onclick="deleteSeminar()" class="btn btn-danger hidden" style="margin-top: 10px;">
+            削除
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let isLoggedIn = false;
+    let seminars = [];
+    let editingId = null;
+
+    // 初期化
+    window.addEventListener('DOMContentLoaded', () => {
+      const loggedIn = localStorage.getItem('pharma_logged_in');
+      if (loggedIn === 'true') {
+        isLoggedIn = true;
+        showMainScreen();
+        loadSeminars();
+      }
+    });
+
+    // ログイン
+    document.getElementById('loginForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const password = document.getElementById('passwordInput').value;
+      if (password === '1231') {
+        isLoggedIn = true;
+        localStorage.setItem('pharma_logged_in', 'true');
+        showMainScreen();
+        loadSeminars();
+      } else {
+        alert('パスワードが正しくありません');
+      }
+    });
+
+    function showMainScreen() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('mainScreen').classList.remove('hidden');
+    }
+
+    function loadSeminars() {
+      const data = localStorage.getItem('pharma_seminars');
+      if (data) {
+        seminars = JSON.parse(data);
+      }
+      renderSeminars();
+    }
+
+    function saveSeminars() {
+      localStorage.setItem('pharma_seminars', JSON.stringify(seminars));
+    }
+
+    function renderSeminars() {
+      const listEl = document.getElementById('seminarList');
+      
+      if (seminars.length === 0) {
+        listEl.innerHTML = `
+          <div class="empty-state">
+            <p>まだ説明会が登録されていません</p>
+            <p style="font-size: 14px;">右下の「+」ボタンから追加してください</p>
+          </div>
+        `;
+        return;
+      }
+
+      const sorted = [...seminars].sort((a, b) => {
+        const dateA = parseInt(a.date + a.time);
+        const dateB = parseInt(b.date + b.time);
+        return dateA - dateB;
+      });
+
+      listEl.innerHTML = sorted.map(seminar => {
+        const todayClass = isToday(seminar.date) ? 'today' : '';
+        return `
+          <div class="seminar-card ${todayClass}" onclick="editSeminarById(${seminar.id})">
+            <p class="company">${seminar.company}</p>
+            <h3>${seminar.title}</h3>
+            <p>📅 ${formatDate(seminar.date)} ${formatTime(seminar.time)}</p>
+            <p>📍 ${seminar.location}</p>
+            ${seminar.memo ? `<p style="margin-top: 10px;">📝 ${seminar.memo}</p>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openAddModal() {
+      editingId = null;
+      document.getElementById('modalTitle').textContent = '説明会を追加';
+      document.getElementById('seminarForm').reset();
+      document.getElementById('deleteBtn').classList.add('hidden');
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function editSeminarById(id) {
+      const seminar = seminars.find(s => s.id === id);
+      if (!seminar) return;
+
+      editingId = id;
+      document.getElementById('modalTitle').textContent = '説明会を編集';
+      document.getElementById('company').value = seminar.company;
+      document.getElementById('title').value = seminar.title;
+      document.getElementById('date').value = seminar.date;
+      document.getElementById('time').value = seminar.time;
+      document.getElementById('location').value = seminar.location;
+      document.getElementById('memo').value = seminar.memo || '';
+      document.getElementById('deleteBtn').classList.remove('hidden');
+      document.getElementById('modalOverlay').classList.add('active');
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('active');
+      editingId = null;
+    }
+
+    function closeModalOnOverlay(event) {
+      if (event.target === event.currentTarget) {
+        closeModal();
+      }
+    }
+
+    document.getElementById('seminarForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const company = document.getElementById('company').value;
+      const title = document.getElementById('title').value;
+      const date = document.getElementById('date').value;
+      const time = document.getElementById('time').value;
+      const location = document.getElementById('location').value;
+      const memo = document.getElementById('memo').value;
+
+      if (!/^[0-9]{8}$/.test(date)) {
+        alert('日付は8桁の数字で入力してください（例: 20260203）');
+        return;
+      }
+      if (!/^[0-9]{4}$/.test(time)) {
+        alert('時刻は4桁の数字で入力してください（例: 1400）');
+        return;
+      }
+
+      if (editingId) {
+        const index = seminars.findIndex(s => s.id === editingId);
+        if (index !== -1) {
+          seminars[index] = { id: editingId, company, title, date, time, location, memo };
+        }
+      } else {
+        seminars.push({
+          id: Date.now(),
+          company,
+          title,
+          date,
+          time,
+          location,
+          memo
+        });
+      }
+
+      saveSeminars();
+      renderSeminars();
+      closeModal();
+      alert('保存しました');
+    });
+
+    function deleteSeminar() {
+      if (confirm('この説明会を削除しますか？')) {
+        seminars = seminars.filter(s => s.id !== editingId);
+        saveSeminars();
+        renderSeminars();
+        closeModal();
+        alert('削除しました');
+      }
+    }
+
+    function shareToLine() {
+      const url = window.location.href;
+      const text = '薬剤説明会スケジュール管理アプリ';
+      const lineUrl = `https://line.me/R/msg/text/?${encodeURIComponent(text + '\n' + url )}`;
+      window.open(lineUrl, '_blank');
+    }
+
+    function formatDate(dateStr) {
+      const year = dateStr.substring(0, 4);
+      const month = dateStr.substring(4, 6);
+      const day = dateStr.substring(6, 8);
+      return `${year}/${month}/${day}`;
+    }
+
+    function formatTime(timeStr) {
+      const hour = timeStr.substring(0, 2);
+      const minute = timeStr.substring(2, 4);
+      return `${hour}:${minute}`;
+    }
+
+    function isToday(dateStr) {
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const todayStr = `${year}${month}${day}`;
+      return dateStr === todayStr;
+    }
+  </script>
+</body>
 </html>
