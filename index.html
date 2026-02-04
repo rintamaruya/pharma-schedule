@@ -265,11 +265,20 @@
     .sync-status {
       text-align: center;
       padding: 10px;
-      background-color: #f0f9ff;
-      color: #0369a1;
+      background-color: #dcfce7;
+      color: #166534;
       font-size: 14px;
       margin-top: 10px;
       border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .sync-status.syncing {
+      background-color: #fef3c7;
+      color: #92400e;
     }
 
     @media (max-width: 600px) {
@@ -330,7 +339,10 @@
       </button>
 
       <!-- 同期状態表示 -->
-      <div id="syncStatus" class="sync-status hidden"></div>
+      <div id="syncStatus" class="sync-status">
+        <span>🔄</span>
+        <span>リアルタイム同期中...</span>
+      </div>
 
       <!-- 説明会リスト -->
       <div id="seminarList" class="seminar-list"></div>
@@ -382,13 +394,39 @@
     </div>
   </div>
 
-  <script>
-    // GitHub Gist URL（データ共有用）
-    const GIST_RAW_URL = 'https://gist.githubusercontent.com/rintamaruya/e6b1aa0bbfa00fe0e66cdb585a080a3f/raw/pharma-seminars.json';
-    
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getDatabase, ref, onValue, set, push, remove } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js';
+
+    // Firebase設定
+    const firebaseConfig = {
+      apiKey: "AIzaSyCLsDRAubSu2FZs2CP_GFfT4eX7VesKRS4",
+      authDomain: "pharma-schedule-a8444.firebaseapp.com",
+      databaseURL: "https://pharma-schedule-a8444-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "pharma-schedule-a8444",
+      storageBucket: "pharma-schedule-a8444.firebasestorage.app",
+      messagingSenderId: "913461953705",
+      appId: "1:913461953705:web:7a11b7339bda480531d5b8"
+    };
+
+    // Firebaseを初期化
+    const app = initializeApp(firebaseConfig);
+    const database = getDatabase(app);
+    const seminarsRef = ref(database, 'seminars');
+
     let isLoggedIn = false;
     let seminars = [];
     let editingId = null;
+
+    // グローバル関数として公開
+    window.showMainScreen = showMainScreen;
+    window.openAddModal = openAddModal;
+    window.editSeminarById = editSeminarById;
+    window.closeModal = closeModal;
+    window.closeModalOnOverlay = closeModalOnOverlay;
+    window.deleteSeminar = deleteSeminar;
+    window.shareToLine = shareToLine;
 
     // 初期化
     window.addEventListener('DOMContentLoaded', () => {
@@ -419,55 +457,32 @@
       document.getElementById('mainScreen').classList.remove('hidden');
     }
 
-    function showSyncStatus(message, isError = false) {
+    function updateSyncStatus(message, isSyncing = false) {
       const statusEl = document.getElementById('syncStatus');
-      statusEl.textContent = message;
-      statusEl.style.backgroundColor = isError ? '#fee2e2' : '#f0f9ff';
-      statusEl.style.color = isError ? '#991b1b' : '#0369a1';
-      statusEl.classList.remove('hidden');
-      setTimeout(() => {
-        statusEl.classList.add('hidden');
-      }, 3000);
-    }
-
-    // GitHub Gistからデータを読み込む
-    async function loadSeminars() {
-      try {
-        const listEl = document.getElementById('seminarList');
-        listEl.innerHTML = '<div class="loading">読み込み中...</div>';
-
-        const response = await fetch(GIST_RAW_URL + '?t=' + Date.now());
-        if (!response.ok) {
-          throw new Error('データの読み込みに失敗しました');
-        }
-
-        const data = await response.json();
-        seminars = data.seminars || [];
-        
-        renderSeminars();
-        showSyncStatus('✓ データを読み込みました');
-      } catch (error) {
-        console.error('読み込みエラー:', error);
-        // ローカルストレージからフォールバック
-        const localData = localStorage.getItem('pharma_seminars');
-        if (localData) {
-          seminars = JSON.parse(localData);
-          renderSeminars();
-          showSyncStatus('⚠ オフラインモード（ローカルデータを表示）', true);
-        } else {
-          document.getElementById('seminarList').innerHTML = `
-            <div class="empty-state">
-              <p>データの読み込みに失敗しました</p>
-              <p style="font-size: 14px;">インターネット接続を確認してください</p>
-            </div>
-          `;
-        }
+      if (isSyncing) {
+        statusEl.innerHTML = '<span>🔄</span><span>' + message + '</span>';
+        statusEl.classList.add('syncing');
+      } else {
+        statusEl.innerHTML = '<span>✓</span><span>' + message + '</span>';
+        statusEl.classList.remove('syncing');
       }
     }
 
-    // ローカルストレージに保存（オフライン用）
-    function saveToLocalStorage() {
-      localStorage.setItem('pharma_seminars', JSON.stringify(seminars));
+    // Firebaseからデータをリアルタイムで読み込む
+    function loadSeminars() {
+      onValue(seminarsRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          seminars = Object.keys(data).map(key => ({
+            firebaseKey: key,
+            ...data[key]
+          }));
+        } else {
+          seminars = [];
+        }
+        renderSeminars();
+        updateSyncStatus('すべてのデバイスと同期済み');
+      });
     }
 
     function renderSeminars() {
@@ -492,7 +507,7 @@
       listEl.innerHTML = sorted.map(seminar => {
         const todayClass = isToday(seminar.date) ? 'today' : '';
         return `
-          <div class="seminar-card ${todayClass}" onclick="editSeminarById(${seminar.id})">
+          <div class="seminar-card ${todayClass}" onclick="editSeminarById('${seminar.firebaseKey}')">
             <p class="company">${seminar.company}</p>
             <h3>${seminar.title}</h3>
             <p>📅 ${formatDate(seminar.date)} ${formatTime(seminar.time)}</p>
@@ -501,8 +516,6 @@
           </div>
         `;
       }).join('');
-
-      saveToLocalStorage();
     }
 
     function openAddModal() {
@@ -513,11 +526,11 @@
       document.getElementById('modalOverlay').classList.add('active');
     }
 
-    function editSeminarById(id) {
-      const seminar = seminars.find(s => s.id === id);
+    function editSeminarById(firebaseKey) {
+      const seminar = seminars.find(s => s.firebaseKey === firebaseKey);
       if (!seminar) return;
 
-      editingId = id;
+      editingId = firebaseKey;
       document.getElementById('modalTitle').textContent = '説明会を編集';
       document.getElementById('company').value = seminar.company;
       document.getElementById('title').value = seminar.title;
@@ -541,7 +554,7 @@
       }
     }
 
-    document.getElementById('seminarForm').addEventListener('submit', (e) => {
+    document.getElementById('seminarForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       
       const company = document.getElementById('company').value.trim();
@@ -561,36 +574,40 @@
         return;
       }
 
-      if (editingId) {
-        // 更新
-        const index = seminars.findIndex(s => s.id === editingId);
-        if (index !== -1) {
-          seminars[index] = { id: editingId, company, title, date, time, location, memo };
-        }
-      } else {
-        // 新規追加
-        seminars.push({
-          id: Date.now(),
-          company,
-          title,
-          date,
-          time,
-          location,
-          memo
-        });
-      }
+      const seminarData = { company, title, date, time, location, memo };
 
-      renderSeminars();
-      closeModal();
-      alert('保存しました\n\n※ 他のデバイスと共有するには、Gistを手動で更新する必要があります。');
+      try {
+        updateSyncStatus('保存中...', true);
+        
+        if (editingId) {
+          // 更新
+          await set(ref(database, 'seminars/' + editingId), seminarData);
+        } else {
+          // 新規追加
+          await push(seminarsRef, seminarData);
+        }
+
+        closeModal();
+        alert('保存しました！\n他のデバイスにも自動的に反映されます。');
+      } catch (error) {
+        console.error('保存エラー:', error);
+        alert('保存に失敗しました。もう一度お試しください。');
+        updateSyncStatus('すべてのデバイスと同期済み');
+      }
     });
 
-    function deleteSeminar() {
+    async function deleteSeminar() {
       if (confirm('この説明会を削除しますか？')) {
-        seminars = seminars.filter(s => s.id !== editingId);
-        renderSeminars();
-        closeModal();
-        alert('削除しました\n\n※ 他のデバイスと共有するには、Gistを手動で更新する必要があります。');
+        try {
+          updateSyncStatus('削除中...', true);
+          await remove(ref(database, 'seminars/' + editingId));
+          closeModal();
+          alert('削除しました！\n他のデバイスにも自動的に反映されます。');
+        } catch (error) {
+          console.error('削除エラー:', error);
+          alert('削除に失敗しました。もう一度お試しください。');
+          updateSyncStatus('すべてのデバイスと同期済み');
+        }
       }
     }
 
